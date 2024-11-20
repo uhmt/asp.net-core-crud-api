@@ -26,3 +26,4 @@ C:\workspace\ASP.Net\ASP_FirstApp\obj\Debug\net8.0\ref\ASP_FirstApp.dll
 C:\workspace\ASP.Net\ASP_FirstApp\bin\Debug\net8.0\ASP_FirstApp.staticwebassets.endpoints.json
 C:\workspace\ASP.Net\ASP_FirstApp\obj\Debug\net8.0\staticwebassets.build.endpoints.json
 C:\workspace\ASP.Net\ASP_FirstApp\obj\Debug\net8.0\staticwebassets\msbuild.ASP_FirstApp.Microsoft.AspNetCore.StaticWebAssetEndpoints.props
+C:\workspace\ASP.Net\ASP_FirstApp\obj\Debug\net8.0\ASP_FirstApp.sourcelink.json

@@ -2,58 +2,76 @@ var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
 
 var todos = new List<TodoItem>();
+var todosLock = new object();
 
-app.MapGet("/", () => "HelloWorld");
+app.MapGet("/", () => "API using ASP.NET Core :)");
 
-app.MapGet("/todos", () => 
+app.MapGet("/todos", () =>
 {
-    if (!todos.Any())
+    lock (todosLock)
     {
-        return Results.NotFound("Aun no has agregado tareas o ya no quedan");
-    }
-    else 
-    {
-        return Results.Ok(todos);
+        if (!todos.Any())
+        {
+            return Results.NotFound("No todos found. Add some tasks to get started.");
+        }
+        else
+        {
+            return Results.Ok(todos);
+        }
     }
 });
 
 app.MapGet("/todos/{id}", (int id) =>
 {
-    if (todos.Any(todo => todo.Id == id))
+    lock (todosLock)
     {
-        return Results.NotFound($"La tarea con el id '{id}' no existe");
+        if (todos.Any(todo => todo.Id == id))
+        {
+            var todo = todos.FirstOrDefault(t => t.Id == id);
+            return Results.Ok(todo);
+        }
+        else
+        {
+            return Results.NotFound($"Todo with the id '{id}' does not exist");
+        }
     }
-    else
-    {
-        var todo = todos.FirstOrDefault(t => t.Id == id);
-        return Results.Ok(todo);
-    }
-    
 });
 
-app.MapPost("/newTodo", (TodoItem task) =>
+app.MapPost("/todos", (TodoItem task) =>
 {
-    if (todos.Any(todo => todo.Id == task.Id))
+    lock (todosLock)
     {
-        return Results.Conflict("La tarea que estas agregando no puede tener un id existente, prueba con un id diferente");
+        if (task.DueDate < DateTime.Now)
+        {
+            return Results.BadRequest("The DueDate cannot be in the past.");
+        }
+        if (todos.Any(todo => todo.Id == task.Id))
+        {
+            return Results.Conflict($"Todo with ID '{task.Id}' already exists. Please use a different ID.");
+        }
+        else
+        {
+            todos.Add(task);
+            return TypedResults.Created($"/todos/{task.Id}", task);
+        }
     }
-    else
-    {
-        todos.Add(task);
-        return TypedResults.Created($"/todos/{task.Id}", task);
-    }
-    
 });
 
 app.MapDelete("/todos/{id}", (int id) =>
 {
-    var todo = todos.FirstOrDefault(TodoItem => TodoItem.Id == id);
-    if (todo is not null)
+    lock (todosLock)
     {
-        todos.Remove(todo);
-        return Results.NoContent();
+        var todo = todos.FirstOrDefault(TodoItem => TodoItem.Id == id);
+        if (todo is not null)
+        {
+            todos.Remove(todo);
+            return Results.NoContent();
+        }
+        else
+        {
+            return Results.NotFound($"Todo with ID '{id}' does not exist.");
+        }
     }
-    return Results.NotFound();
 });
 app.Run();
 
