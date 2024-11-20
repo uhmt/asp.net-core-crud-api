@@ -5,3 +5,6 @@ obj/
 # VS Code settings
 .vscode/
 .fake
+
+# Settings
+appsettings.Development.json
