@@ -12,7 +12,7 @@ A simple CRUD API built with ASP.NET Core for managing tasks. This API allows yo
 
 ## Technologies
 
-- **ASP.NET Core 7.0**
+- **ASP.NET Core 8.0**
 - **C#**
 - **In-memory list** for storing tasks (no database yet).
 
