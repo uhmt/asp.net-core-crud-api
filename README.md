@@ -1,42 +1,42 @@
-# ASP.NET Core CRUD API
+# Task API · ASP.NET Core
 
-A simple CRUD API built with ASP.NET Core for managing tasks. This API allows you to create, read, update, and delete tasks with basic validation.
+A small C# API demonstrating task creation, retrieval, update and deletion with persistent SQLite storage through Entity Framework Core.
 
-## Features
+## Run
 
-- Add new tasks with unique IDs.
-- Fetch all tasks or a specific task by ID.
-- Update task details.
-- Delete tasks.
-- Friendly error handling.
+Install the .NET 8 SDK, then:
 
-## Technologies
+```sh
+dotnet restore
+dotnet run --urls http://localhost:5080
+```
 
-- **ASP.NET Core 8.0**
-- **C#**
-- **In-memory list** for storing tasks (no database yet).
+The SQLite file `todos.db` is created automatically. Override `ConnectionStrings__Todos` to use a different SQLite path. Database files are excluded from Git.
 
-## Endpoints
+| Method | Route | Purpose |
+| --- | --- | --- |
+| GET | `/todos` | List tasks, including an empty array |
+| GET | `/todos/{id}` | Fetch a task; 404 if missing |
+| POST | `/todos` | Create; server assigns the ID |
+| PUT | `/todos/{id}` | Update a task |
+| DELETE | `/todos/{id}` | Delete; 204 on success |
 
-### GET `/todos`
+Example request body for POST/PUT:
+```json
+{"name":"Review documentation","dueDate":"2099-12-31","isCompleted":false}
+```
 
-- Retrieves all tasks.
-- If no tasks are available, returns a friendly message.
+Names must contain 1–200 characters. New tasks cannot have a due date before today (UTC). Updates allow past dates so an overdue task can be completed. Data survives a server restart.
 
-### GET `/todos/{id}`
+## Verification
 
-- Fetches a task by its `id`.
-- Returns `404 Not Found` if the task does not exist.
+```sh
+dotnet build
+python3 tests/smoke.py
+```
 
-### POST `/newTodo`
+The smoke test starts an isolated instance, creates/updates/deletes a task, checks invalid requests, and verifies persistence after restart. It requires `dotnet` on PATH.
 
-- Adds a new task.
-- Requires the following JSON format:
-  ```json
-  {
-    "id": 1,
-    "name": "Example Task",
-    "dueDate": "2024-11-20",
-    "isCompleted": false
-  }
-  ```
+## Scope
+
+Learning project with no authentication or authorization. Run locally; do not expose it with private data. The initial schema uses `EnsureCreated`; schema evolution would require a migration strategy before production use.

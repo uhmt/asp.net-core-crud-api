@@ -1,84 +1,31 @@
+using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddDbContext<TodoDb>(options => options.UseSqlite(builder.Configuration.GetConnectionString("Todos") ?? "Data Source=todos.db"));
 var app = builder.Build();
-
-var todos = new List<TodoItem>();
-var todosLock = new object();
-
-app.MapGet("/", () => "API using ASP.NET Core :)");
-
-app.MapGet("/todos", () =>
+using (var scope = app.Services.CreateScope()) scope.ServiceProvider.GetRequiredService<TodoDb>().Database.EnsureCreated();
+app.MapGet("/", () => "Task API: /todos");
+app.MapGet("/todos", async (TodoDb db) => Results.Ok(await db.Todos.AsNoTracking().ToListAsync()));
+app.MapGet("/todos/{id:int}", async (int id, TodoDb db) => await db.Todos.FindAsync(id) is TodoItem item ? Results.Ok(item) : Results.NotFound());
+app.MapPost("/todos", async (TodoInput input, TodoDb db) =>
 {
-    lock (todosLock)
-    {
-        if (!todos.Any())
-        {
-            return Results.NotFound("No todos found. Add some tasks to get started.");
-        }
-        else
-        {
-            return Results.Ok(todos);
-        }
-    }
+    if (!Valid(input)) return Results.BadRequest("A name and a due date today or later are required.");
+    var item = new TodoItem { Name = input.Name.Trim(), DueDate = input.DueDate, IsCompleted = input.IsCompleted };
+    db.Todos.Add(item); await db.SaveChangesAsync(); return Results.Created($"/todos/{item.Id}", item);
 });
-
-app.MapGet("/todos/{id}", (int id) =>
+app.MapPut("/todos/{id:int}", async (int id, TodoInput input, TodoDb db) =>
 {
-    lock (todosLock)
-    {
-        if (todos.Any(todo => todo.Id == id))
-        {
-            var todo = todos.FirstOrDefault(t => t.Id == id);
-            return Results.Ok(todo);
-        }
-        else
-        {
-            return Results.NotFound($"Todo with the id '{id}' does not exist");
-        }
-    }
+    var item = await db.Todos.FindAsync(id); if (item is null) return Results.NotFound();
+    if (string.IsNullOrWhiteSpace(input.Name) || input.Name.Length > 200 || input.DueDate == default) return Results.BadRequest("A name (1-200 characters) and a due date are required.");
+    item.Name = input.Name.Trim(); item.DueDate = input.DueDate; item.IsCompleted = input.IsCompleted;
+    await db.SaveChangesAsync(); return Results.Ok(item);
 });
-
-app.MapPost("/todos", (TodoItem task) =>
+app.MapDelete("/todos/{id:int}", async (int id, TodoDb db) =>
 {
-    lock (todosLock)
-    {
-        if (task.DueDate < DateTime.Now)
-        {
-            return Results.BadRequest("The DueDate cannot be in the past.");
-        }
-        if (todos.Any(todo => todo.Id == task.Id))
-        {
-            return Results.Conflict($"Todo with ID '{task.Id}' already exists. Please use a different ID.");
-        }
-        else
-        {
-            todos.Add(task);
-            return TypedResults.Created($"/todos/{task.Id}", task);
-        }
-    }
-});
-
-app.MapDelete("/todos/{id}", (int id) =>
-{
-    lock (todosLock)
-    {
-        var todo = todos.FirstOrDefault(TodoItem => TodoItem.Id == id);
-        if (todo is not null)
-        {
-            todos.Remove(todo);
-            return Results.NoContent();
-        }
-        else
-        {
-            return Results.NotFound($"Todo with ID '{id}' does not exist.");
-        }
-    }
+    var item = await db.Todos.FindAsync(id); if (item is null) return Results.NotFound();
+    db.Todos.Remove(item); await db.SaveChangesAsync(); return Results.NoContent();
 });
 app.Run();
-
-public record TodoItem
-{
-    public int Id { get; init; }
-    public required string Name { get; init; }
-    public DateTime DueDate { get; init; }
-    public bool IsCompleted { get; init; }
-}
+static bool Valid(TodoInput input) => !string.IsNullOrWhiteSpace(input.Name) && input.Name.Length <= 200 && input.DueDate.Date >= DateTime.UtcNow.Date;
+public record TodoInput(string Name, DateTime DueDate, bool IsCompleted);
+public class TodoItem { public int Id { get; set; } public string Name { get; set; } = ""; public DateTime DueDate { get; set; } public bool IsCompleted { get; set; } }
+public class TodoDb(DbContextOptions<TodoDb> options) : DbContext(options) { public DbSet<TodoItem> Todos => Set<TodoItem>(); }
